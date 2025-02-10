@@ -12,11 +12,19 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.Vector;
+import com.jogamp.opengl.util.*;
 
-public class Code extends JFrame implements GLEventListener
+//Imports for KeyListener to capture user's key inputs 
+import javax.swing.*;
+import java.awt.BorderLayout;
+import java.awt.event.*;
+
+public class Code extends JFrame implements GLEventListener, KeyListener
 {	private GLCanvas myCanvas;
 	private int renderingProgram;
 	private int vao[] = new int[1];
+	private float x = 0.0f;
+	private float inc = 0.01f;
 
 	public Code()
 	{	setTitle("Chapter 2 - program 2");
@@ -25,14 +33,42 @@ public class Code extends JFrame implements GLEventListener
 		myCanvas.addGLEventListener(this);
 		this.add(myCanvas);
 		this.setVisible(true);
+
+		//Allows for Keylistener to capture user key input
+		myCanvas.addGLEventListener(this);
+		myCanvas.addKeyListener(this);
+
+		Animator animtr = new Animator(myCanvas);
+		animtr.start();
+	}
+
+	@Override
+	public voicd keyPressed (KeyEvent e)
+	{
+		switch (e.getKeyCode())
+		{
+			case KeyEvent.VK_1:
+			//add something when the 1 key is pressed
+			break;
+			case KeyEvent.VK_2:
+			//add something when the 2 key is pressed
+			break;
+		}
 	}
 
 	public void display(GLAutoDrawable drawable)
 	{	GL4 gl = (GL4) GLContext.getCurrentGL();
+		gl.glClear(GL_DEPTH_BUFFER_BIT);
+		gl.glClear(GL_COLOR_BUFFER_BIT);
 		gl.glUseProgram(renderingProgram);
-		gl.glPointSize(1.0f);
-		// gl.glPointSize(30.0f);
-		//gl.glDrawArrays(GL_POINTS,0,1);
+
+		x += inc;
+		if (x > 1.0f) inc = -0.01f;
+		if (x < -1.0f) inc = 0.01f;
+		int offsetLoc = gl.glGetUniformLocation(renderingProgram, "offset");
+		gl.glProgramUniform1f(renderingProgram,offsetLoc,x);
+		
+				
 		gl.glDrawArrays(GL_TRIANGLES,0,3);
 	}
 
