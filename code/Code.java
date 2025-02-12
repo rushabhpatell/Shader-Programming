@@ -7,130 +7,149 @@ import com.jogamp.opengl.awt.GLCanvas;
 import com.jogamp.opengl.GLContext;
 import com.jogamp.opengl.glu.GLU;
 import com.jogamp.common.nio.Buffers;
+import com.jogamp.opengl.util.*;
 
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.io.File;
 import java.io.IOException;
 import java.util.Scanner;
 import java.util.Vector;
-import com.jogamp.opengl.util.*;
-
-//Imports for KeyListener to capture user's key inputs 
-import javax.swing.*;
-import java.awt.BorderLayout;
-import java.awt.event.*;
 
 public class Code extends JFrame implements GLEventListener, KeyListener
-{	private GLCanvas myCanvas;
+{	
+	private GLCanvas myCanvas;
 	private int renderingProgram;
 	private int vao[] = new int[1];
-	private float x = 0.0f;
-	private float inc = 0.01f;
+	private int vbo[] = new int[1];
+	private float triangleSize = 0.5f; // Initial size of the triangle
+	private float sizeIncrement = 0.05f; // Amount to increase/decrease size
+	private int colorMode = 0; // 0 = Yellow, 1 = Purple, 2 = Gradient
+	private float offset = 0.0f; // Horizontal offset for animation
+	private float offsetIncrement = 0.01f; // Speed of animation
 
 	public Code()
-	{	setTitle("Chapter 2 - program 2");
+	{	
+		setTitle("Assignment 1");
 		setSize(600, 400);
 		myCanvas = new GLCanvas();
 		myCanvas.addGLEventListener(this);
+		myCanvas.addKeyListener(this); // Add key listener to the canvas
 		this.add(myCanvas);
 		this.setVisible(true);
-
-		//Allows for Keylistener to capture user key input
-		myCanvas.addGLEventListener(this);
-		myCanvas.addKeyListener(this);
-
 		Animator animtr = new Animator(myCanvas);
 		animtr.start();
 	}
 
-	@Override
-	public voicd keyPressed (KeyEvent e)
-	{
-		switch (e.getKeyCode())
-		{
-			case KeyEvent.VK_1:
-			//add something when the 1 key is pressed
-			break;
-			case KeyEvent.VK_2:
-			//add something when the 2 key is pressed
-			break;
-		}
-	}
-
 	public void display(GLAutoDrawable drawable)
-	{	GL4 gl = (GL4) GLContext.getCurrentGL();
+	{	
+		GL4 gl = (GL4) GLContext.getCurrentGL();
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
 		gl.glClear(GL_COLOR_BUFFER_BIT);
 		gl.glUseProgram(renderingProgram);
 
-		x += inc;
-		if (x > 1.0f) inc = -0.01f;
-		if (x < -1.0f) inc = 0.01f;
+		// Update the horizontal offset for animation
+		offset += offsetIncrement;
+		if (offset > 1.0f || offset < -1.0f) {
+			offsetIncrement = -offsetIncrement; // Reverse direction
+		}
+
+		// Pass the offset to the shader
 		int offsetLoc = gl.glGetUniformLocation(renderingProgram, "offset");
-		gl.glProgramUniform1f(renderingProgram,offsetLoc,x);
-		
-				
-		gl.glDrawArrays(GL_TRIANGLES,0,3);
+		gl.glProgramUniform1f(renderingProgram, offsetLoc, offset);
+
+		// Pass the size to the shader
+		int sizeLoc = gl.glGetUniformLocation(renderingProgram, "size");
+		gl.glProgramUniform1f(renderingProgram, sizeLoc, triangleSize);
+
+		// Pass the color mode to the shader
+		int colorModeLoc = gl.glGetUniformLocation(renderingProgram, "colorMode");
+		gl.glProgramUniform1i(renderingProgram, colorModeLoc, colorMode);
+
+		gl.glDrawArrays(GL_TRIANGLES, 0, 3);
 	}
 
 	public void init(GLAutoDrawable drawable)
-	{	GL4 gl = (GL4) GLContext.getCurrentGL();
+	{	
+		GL4 gl = (GL4) GLContext.getCurrentGL();
 		renderingProgram = Utils.createShaderProgram("code/vertShader.glsl", "code/fragShader.glsl");
 		gl.glGenVertexArrays(vao.length, vao, 0);
 		gl.glBindVertexArray(vao[0]);
+
+		// Set up vertex data for the triangle (positions and colors)
+		float[] vertices = {
+			// Positions         // Colors (for gradient mode)
+			-0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f, // Red
+			0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f, // Green
+			0.0f, 0.5f, 0.0f,    0.0f, 0.0f, 1.0f  // Blue
+		};
+
+		gl.glGenBuffers(vbo.length, vbo, 0);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glBufferData(GL_ARRAY_BUFFER, vertices.length * Float.BYTES, Buffers.newDirectFloatBuffer(vertices), GL_STATIC_DRAW);
+
+		// Set up vertex attribute pointers
+		int positionLoc = gl.glGetAttribLocation(renderingProgram, "vPosition");
+		gl.glVertexAttribPointer(positionLoc, 3, GL_FLOAT, false, 6 * Float.BYTES, 0);
+		gl.glEnableVertexAttribArray(positionLoc);
+
+		int colorLoc = gl.glGetAttribLocation(renderingProgram, "vColor");
+		gl.glVertexAttribPointer(colorLoc, 3, GL_FLOAT, false, 6 * Float.BYTES, 3 * Float.BYTES);
+		gl.glEnableVertexAttribArray(colorLoc);
 	}
 
-	private int createShaderProgram()
-	{	GL4 gl = (GL4) GLContext.getCurrentGL();
-
-		String vshaderSource[] = readShaderSource("code/vertShader.glsl");
-		String fshaderSource[] = readShaderSource("code/fragShader.glsl");
-
-		int vShader = gl.glCreateShader(GL_VERTEX_SHADER);
-		int fShader = gl.glCreateShader(GL_FRAGMENT_SHADER);
-
-		gl.glShaderSource(vShader, vshaderSource.length, vshaderSource, null, 0);
-		gl.glCompileShader(vShader);
-
-		gl.glShaderSource(fShader, fshaderSource.length, fshaderSource, null, 0);
-		gl.glCompileShader(fShader);
-
-		int vfprogram = gl.glCreateProgram();
-		gl.glAttachShader(vfprogram, vShader);
-		gl.glAttachShader(vfprogram, fShader);
-		gl.glLinkProgram(vfprogram);
-
-		gl.glDeleteShader(vShader);
-		gl.glDeleteShader(fShader);
-		return vfprogram;
+	@Override
+	public void keyPressed(KeyEvent e) {
+		int keyCode = e.getKeyCode();
+		if (keyCode == KeyEvent.VK_3) {
+			triangleSize += sizeIncrement; // Increase size
+		} else if (keyCode == KeyEvent.VK_4) {
+			triangleSize -= sizeIncrement; // Decrease size
+		} else if (keyCode == KeyEvent.VK_2) {
+			colorMode = (colorMode + 1) % 3; // Toggle color mode
+		}
+		myCanvas.display(); // Trigger redraw
 	}
+
+	@Override
+	public void keyReleased(KeyEvent e) {}
+
+	@Override
+	public void keyTyped(KeyEvent e) {}
 
 	public static void main(String[] args) { new Code(); }
 	public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {}
 	public void dispose(GLAutoDrawable drawable) {}
 
 	private String[] readShaderSource(String filename)
-	{	Vector<String> lines = new Vector<String>();
+	{	
+		Vector<String> lines = new Vector<String>();
 		String[] program;
 		Scanner sc;
 		try
-		{	sc = new Scanner(new File(filename));
+		{	
+			sc = new Scanner(new File(filename));
 			while (sc.hasNext())
-			{	lines.addElement(sc.nextLine());
+			{	
+				lines.addElement(sc.nextLine());
 			}
 			program = new String[lines.size()];
 			for (int i = 0; i < lines.size(); i++)
-			{	program[i] = (String) lines.elementAt(i) + "\n";
+			{	
+				program[i] = (String) lines.elementAt(i) + "\n";
 			}
 		}
 		catch (IOException e)
-		{	System.err.println("IOException reading file: " + e);
+		{	
+			System.err.println("IOException reading file: " + e);
 			return null;
 		}
 		return program;
 	}
 
 	private void printShaderLog(int shader)
-	{	GL4 gl = (GL4) GLContext.getCurrentGL();
+	{	
+		GL4 gl = (GL4) GLContext.getCurrentGL();
 		int[] len = new int[1];
 		int[] chWrittn = new int[1];
 		byte[] log = null;
@@ -138,17 +157,20 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		// determine the length of the shader compilation log
 		gl.glGetShaderiv(shader, GL_INFO_LOG_LENGTH, len, 0);
 		if (len[0] > 0)
-		{	log = new byte[len[0]];
+		{	
+			log = new byte[len[0]];
 			gl.glGetShaderInfoLog(shader, len[0], chWrittn, 0, log, 0);
 			System.out.println("Shader Info Log: ");
 			for (int i = 0; i < log.length; i++)
-			{	System.out.print((char) log[i]);
+			{	
+				System.out.print((char) log[i]);
 			}
 		}
 	}
 
 	void printProgramLog(int prog)
-	{	GL4 gl = (GL4) GLContext.getCurrentGL();
+	{	
+		GL4 gl = (GL4) GLContext.getCurrentGL();
 		int[] len = new int[1];
 		int[] chWrittn = new int[1];
 		byte[] log = null;
@@ -156,22 +178,26 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		// determine length of the program compilation log
 		gl.glGetProgramiv(prog, GL_INFO_LOG_LENGTH, len, 0);
 		if (len[0] > 0)
-		{	log = new byte[len[0]];
+		{	
+			log = new byte[len[0]];
 			gl.glGetProgramInfoLog(prog, len[0], chWrittn, 0, log, 0);
 			System.out.println("Program Info Log: ");
 			for (int i = 0; i < log.length; i++)
-			{	System.out.print((char) log[i]);
+			{	
+				System.out.print((char) log[i]);
 			}
 		}
 	}
 
 	boolean checkOpenGLError()
-	{	GL4 gl = (GL4) GLContext.getCurrentGL();
+	{	
+		GL4 gl = (GL4) GLContext.getCurrentGL();
 		boolean foundError = false;
 		GLU glu = new GLU();
 		int glErr = gl.glGetError();
 		while (glErr != GL_NO_ERROR)
-		{	System.err.println("glError: " + glu.gluErrorString(glErr));
+		{	
+			System.err.println("glError: " + glu.gluErrorString(glErr));
 			foundError = true;
 			glErr = gl.glGetError();
 		}
