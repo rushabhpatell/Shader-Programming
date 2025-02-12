@@ -25,8 +25,12 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	private float triangleSize = 0.5f; // Initial size of the triangle
 	private float sizeIncrement = 0.05f; // Amount to increase/decrease size
 	private int colorMode = 0; // 0 = Yellow, 1 = Purple, 2 = Gradient
-	private float offset = 0.0f; // Horizontal offset for animation
-	private float offsetIncrement = 0.01f; // Speed of animation
+	private float offsetX = 0.0f; // Horizontal offset for animation
+	private float offsetY = 0.0f; // Vertical offset for circular motion
+	private float angle = 0.0f; // Angle for circular motion
+	private boolean circularMotion = false; // Toggle for circular motion
+	private int rotationState = 0; // 0 = Up, 1 = Down, 2 = Left, 3 = Right
+	private long previousTime = System.nanoTime(); // Time tracking for smooth animation
 
 	public Code()
 	{	
@@ -48,15 +52,30 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		gl.glClear(GL_COLOR_BUFFER_BIT);
 		gl.glUseProgram(renderingProgram);
 
-		// Update the horizontal offset for animation
-		offset += offsetIncrement;
-		if (offset > 1.0f || offset < -1.0f) {
-			offsetIncrement = -offsetIncrement; // Reverse direction
+		// Calculate elapsed time
+		long currentTime = System.nanoTime();
+		float elapsedTime = (currentTime - previousTime) / 1_000_000_000.0f; // Convert to seconds
+		previousTime = currentTime;
+
+		// Update movement based on elapsed time
+		if (circularMotion) {
+			// Circular motion using unit circle equations
+			angle += elapsedTime; // Increment angle based on time
+			offsetX = (float) Math.cos(angle);
+			offsetY = (float) Math.sin(angle);
+		} else {
+			// Horizontal motion
+			offsetX += elapsedTime * 0.5f; // Adjust speed as needed
+			if (offsetX > 1.0f || offsetX < -1.0f) {
+				offsetX = -offsetX; // Reverse direction at edges
+			}
 		}
 
-		// Pass the offset to the shader
-		int offsetLoc = gl.glGetUniformLocation(renderingProgram, "offset");
-		gl.glProgramUniform1f(renderingProgram, offsetLoc, offset);
+		// Pass the offsets to the shader
+		int offsetXLoc = gl.glGetUniformLocation(renderingProgram, "offsetX");
+		int offsetYLoc = gl.glGetUniformLocation(renderingProgram, "offsetY");
+		gl.glProgramUniform1f(renderingProgram, offsetXLoc, offsetX);
+		gl.glProgramUniform1f(renderingProgram, offsetYLoc, offsetY);
 
 		// Pass the size to the shader
 		int sizeLoc = gl.glGetUniformLocation(renderingProgram, "size");
@@ -65,6 +84,10 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 		// Pass the color mode to the shader
 		int colorModeLoc = gl.glGetUniformLocation(renderingProgram, "colorMode");
 		gl.glProgramUniform1i(renderingProgram, colorModeLoc, colorMode);
+
+		// Pass the rotation state to the shader
+		int rotationLoc = gl.glGetUniformLocation(renderingProgram, "rotationState");
+		gl.glProgramUniform1i(renderingProgram, rotationLoc, rotationState);
 
 		gl.glDrawArrays(GL_TRIANGLES, 0, 3);
 	}
@@ -101,12 +124,16 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	@Override
 	public void keyPressed(KeyEvent e) {
 		int keyCode = e.getKeyCode();
-		if (keyCode == KeyEvent.VK_3) {
+		if (keyCode == KeyEvent.VK_1) {
+			circularMotion = !circularMotion; // Toggle circular motion
+		} else if (keyCode == KeyEvent.VK_2) {
+			colorMode = (colorMode + 1) % 3; // Toggle color mode
+		} else if (keyCode == KeyEvent.VK_3) {
 			triangleSize += sizeIncrement; // Increase size
 		} else if (keyCode == KeyEvent.VK_4) {
 			triangleSize -= sizeIncrement; // Decrease size
-		} else if (keyCode == KeyEvent.VK_2) {
-			colorMode = (colorMode + 1) % 3; // Toggle color mode
+		} else if (keyCode == KeyEvent.VK_5) {
+			rotationState = (rotationState + 1) % 4; // Cycle rotation states
 		}
 		myCanvas.display(); // Trigger redraw
 	}
