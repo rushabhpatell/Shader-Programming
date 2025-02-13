@@ -31,6 +31,7 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 	private boolean circularMotion = false; // Toggle for circular motion
 	private int rotationState = 0; // 0 = Up, 1 = Down, 2 = Left, 3 = Right
 	private long previousTime = System.nanoTime(); // Time tracking for smooth animation
+	private float direction = 0.5f;
 
 	public Code()
 	{	
@@ -65,9 +66,9 @@ public class Code extends JFrame implements GLEventListener, KeyListener
 			offsetY = (float) Math.sin(angle);
 		} else {
 			// Horizontal motion
-			offsetX += elapsedTime * 0.5f; // Adjust speed as needed
+			offsetX += elapsedTime * direction; // Adjust speed as needed
 			if (offsetX > 1.0f || offsetX < -1.0f) {
-				offsetX = -offsetX; // Reverse direction at edges
+				direction = -direction; // Reverse direction at edges
 			}
 		}
 
